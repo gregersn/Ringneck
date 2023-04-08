@@ -1,0 +1,8 @@
+setuptools
+build
+twine
+pytest
+pylint
+pytest-cov
+autopep8
+toml
