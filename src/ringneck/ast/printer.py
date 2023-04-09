@@ -38,11 +38,20 @@ class ASTPrinter(Visitor[VisitorType]):
     def visit_Assign_Expression(self, expr: expression.Assign):
         return self.parenthesize(f'assign {expr.name.literal}', expr.value)
 
+    def visit_AssignIterator_Expression(self, expr: expression.AssignIterator):
+        return self.parenthesize(f'assign {expr.iterator.accept(self)}', expr.value)
+
     def visit_KeyDatum_Expression(self, expr: expression.KeyDatum):
         return f"{expr.key.accept(self)}: {expr.datum.accept(self)}"
 
     def visit_Dict_Expression(self, expr: expression.Dict):
         return f"(dict {', '.join([v.accept(self) for v in expr.values])})"
 
+    def visit_List_Expression(self, expr: expression.List):
+        return f"(list {', '.join([str(v.accept(self)) for v in expr.values])})"
+
     def visit_Variable_Expression(self, expr: expression.Variable):
         return f"{expr.name.literal}"
+
+    def visit_VariableIterator_Expression(self, expr: expression.VariableIterator):
+        return f"{expr.prefix.literal}{expr.iterator.accept(self)}"

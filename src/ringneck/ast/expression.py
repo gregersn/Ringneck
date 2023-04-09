@@ -43,8 +43,20 @@ class Variable(Expression):
 
 
 @dataclass
+class VariableIterator(Expression):
+    prefix: Expression
+    iterator: 'List'
+
+
+@dataclass
 class Assign(Expression):
     name: Token
+    value: Any
+
+
+@dataclass
+class AssignIterator(Expression):
+    iterator: VariableIterator
     value: Any
 
 
