@@ -1,3 +1,4 @@
+"""Ringneck parser."""
 from typing import List
 from ringneck.ast import expression, statement
 from ringneck.error_handler import ErrorHandler
@@ -71,13 +72,15 @@ class Parser:
             if isinstance(expr, expression.Variable):
                 name = expr.name
                 return expression.Assign(name, value)
-            self.error(equals,  "Invalid assignment target.")
+            if isinstance(expr, expression.VariableIterator):
+                return expression.AssignIterator(expr, value)
+            self.error(equals, "Invalid assignment target.")
         return expr
 
     def equality(self):
         expr = self.comparison()
 
-        while (self.match(TokenType.BANG_EQUAL, TokenType.EQUAL_EQUAL)):
+        while self.match(TokenType.BANG_EQUAL, TokenType.EQUAL_EQUAL):
             operator = self.previous()
             right = self.comparison()
             expr = expression.Binary(expr, operator, right)
@@ -87,7 +90,8 @@ class Parser:
     def comparison(self):
         expr = self.term()
 
-        while (self.match(TokenType.GREATER, TokenType.GREATER_EQUAL, TokenType.LESS, TokenType.LESS_EQUAL)):
+        while (self.match(TokenType.GREATER, TokenType.GREATER_EQUAL,
+                          TokenType.LESS, TokenType.LESS_EQUAL)):
             operator = self.previous()
             right = self.term()
             expr = expression.Binary(expr, operator, right)
@@ -147,6 +151,10 @@ class Parser:
 
     def primary(self):
         if self.match(TokenType.IDENTIFIER):
+            if self.peek().tokentype == TokenType.LEFT_BRACKET:
+                prefix = self.previous()
+                iterator = self.primary()
+                return expression.VariableIterator(prefix, iterator)
             return expression.Variable(self.previous())
 
         if self.match(TokenType.NUMBER, TokenType.STRING):
@@ -210,7 +218,8 @@ class Parser:
         return ParserError(token, message)
 
     def synchronize(self):
-        # TODO: This is where we should try to find the start of a new statement.
+        # TODO: This is where we should try to
+        # find the start of a new statement.
         self.advance()
 
         while not self.is_at_end():

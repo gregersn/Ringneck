@@ -55,8 +55,22 @@ class Interpreter(ExpressionVisitor[Expression],
     def visit_Assign_Expression(self, expr: expression.Assign):
         self.set(expr.name.literal, self.evaluate(expr.value))
 
+    def visit_AssignIterator_Expression(self, expr: expression.AssignIterator):
+        prefix = expr.iterator.prefix.literal
+        iterator = expr.iterator.iterator.accept(self)
+
+        for it in iterator:
+            self.set(f"{prefix}{it}", self.evaluate(expr.value))
+
     def visit_Variable_Expression(self, expr: expression.Variable):
         return self.get(expr.name.literal)
+
+    def visit_VariableIterator_Expression(self,
+                                          expr: expression.VariableIterator):
+        prefix = expr.prefix.literal
+        iterator = expr.iterator.accept(self)
+
+        raise NotImplementedError
 
     def visit_Dict_Expression(self, expr: expression.Dict):
         output: Dict[Any, Any] = {}
