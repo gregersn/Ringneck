@@ -13,15 +13,6 @@ class Parser:
     def __init__(self, tokens: List[Token]):
         self.tokens = tokens
 
-    def parse(self):
-        statements: List[statement.Statement] = []
-        while not self.is_at_end():
-            statements.append(self.statement())
-            while self.match(TokenType.EOL):
-                self.advance()
-
-        return statements
-
     def match(self, *args: TokenType) -> bool:
         for tokentype in args:
             if self.check(tokentype):
@@ -51,36 +42,86 @@ class Parser:
     def previous(self):
         return self.tokens[self.current - 1]
 
+    def parse(self):
+        statements: List[statement.Statement] = []
+        while not self.is_at_end():
+            statements.append(self.statement())
+            while self.match(TokenType.EOL):
+                pass
+
+        return statements
+
     def statement(self):
         return self.expression_statement()
 
     def expression_statement(self):
         expr = self.parse_expression()
+
         if not self.is_at_end():
-            self.consume(TokenType.EOL, "Expect newline after expression")
+            self.consume(
+                TokenType.EOL, f"Expect newline after expression, got {self.peek().tokentype}")
         return statement.Expression(expr)
+
+    def expression_list(self):
+        expr = self.equality()
+        if self.peek().tokentype == TokenType.COMMA:
+            expr_list = [expr]
+            while self.match(TokenType.COMMA):
+                expr_list.append(self.equality())
+
+            if self.peek().tokentype != TokenType.RIGHT_PAREN:
+                return expression.Tuple(expr_list)
+            expr = expression.ExpressionList(expr_list)
+        return expr
 
     def parse_expression(self):
         return self.assignment()
 
     def assignment(self) -> expression.Expression:
-        expr = self.equality()
-        if self.match(TokenType.EQUAL):
+        expr = self.expression_list()
+
+        if self.match(TokenType.EQUAL, TokenType.MAYBE_EQUAL):
             equals = self.previous()
             value = self.assignment()
 
+            if isinstance(expr, (expression.Tuple, expression.List)):
+                assert isinstance(value, expression.Tuple)
+                assert len(expr.values) == len(value.values)
+                return expression.MultiAssign(expr, equals, value)
             if isinstance(expr, expression.Variable):
                 name = expr.name
-                return expression.Assign(name, value)
+                return expression.Assign(name, equals, value)
             if isinstance(expr, expression.VariableIterator):
-                return expression.AssignIterator(expr, value)
+                return expression.AssignIterator(expr, equals, value)
             self.error(equals, "Invalid assignment target.")
         return expr
 
     def equality(self):
-        expr = self.comparison()
+        expr = self.logical()
+
+        if self.peek().tokentype == TokenType.IF:
+            self.consume(TokenType.IF, "Expected conditional")
+            condition = self.equality()
+            other = None
+
+            if self.peek().tokentype == TokenType.ELSE:
+                self.consume(TokenType.ELSE,
+                             f"Expected else, got {self.peek().tokentype}")
+                other = self.parse_expression()
+
+            return expression.Conditional(expr, condition, other)
 
         while self.match(TokenType.BANG_EQUAL, TokenType.EQUAL_EQUAL):
+            operator = self.previous()
+            right = self.logical()
+            expr = expression.Binary(expr, operator, right)
+
+        return expr
+
+    def logical(self):
+        expr = self.comparison()
+
+        while (self.match(TokenType.AND, TokenType.OR)):
             operator = self.previous()
             right = self.comparison()
             expr = expression.Binary(expr, operator, right)
@@ -122,7 +163,10 @@ class Parser:
             operator = self.previous()
             right = self.unary()
             return expression.Unary(operator, right)
-
+        if self.match(TokenType.STAR):
+            operator = self.previous()
+            right = self.unary()
+            return expression.Starred(operator, right)
         return self.call()
 
     def call(self):
@@ -137,32 +181,43 @@ class Parser:
         return expr
 
     def finish_call(self, callee: expression.Expression):
-        arguments: List[expression.Expression] = []
-
+        arguments = []
         if not self.check(TokenType.RIGHT_PAREN):
-            arguments.append(self.parse_expression())
+            arguments.append(self.equality())
             while self.match(TokenType.COMMA):
-                arguments.append(self.parse_expression())
+                arguments.append(self.equality())
 
         paren = self.consume(TokenType.RIGHT_PAREN,
                              "Expected ')' after arguments")
 
-        return expression.Call(callee, paren, arguments)
+        return expression.Call(callee, paren, expression.ExpressionList(arguments))
 
     def primary(self):
+        if self.match(TokenType.FALSE):
+            return expression.Literal(False)
+
+        if self.match(TokenType.TRUE):
+            return expression.Literal(True)
+
+        if self.match(TokenType.NOT):
+            return expression.Literal('not')
+
         if self.match(TokenType.IDENTIFIER):
             if self.peek().tokentype == TokenType.LEFT_BRACKET:
                 prefix = self.previous()
                 iterator = self.primary()
                 return expression.VariableIterator(prefix, iterator)
+
             return expression.Variable(self.previous())
 
         if self.match(TokenType.NUMBER, TokenType.STRING):
             return expression.Literal(self.previous().literal)
 
         if self.match(TokenType.LEFT_PAREN):
-            expr = self.parse_expression()
+            expr = self.expression_list()
             self.consume(TokenType.RIGHT_PAREN, "Expect ')' after expression")
+            if isinstance(expr, expression.ExpressionList):
+                return expression.Tuple(expr.expressions)
             return expression.Grouping(expr)
 
         if self.match(TokenType.LEFT_BRACKET):
@@ -170,6 +225,9 @@ class Parser:
 
         if self.match(TokenType.LEFT_BRACE):
             return self.dictionary()
+
+        if self.match(TokenType.PERCENT):
+            return expression.IteratorValue(self.previous())
 
         raise self.error(self.peek(), "Expect expression")
 
@@ -182,7 +240,7 @@ class Parser:
 
             key = self.parse_expression()
             self.consume(TokenType.COLON, "Expect colon")
-            value = self.parse_expression()
+            value = self.equality()
             data_pairs.append(expression.KeyDatum(key, value))
             if self.peek().tokentype == TokenType.COMMA:
                 self.consume(TokenType.COMMA, "Expected comma")
@@ -194,18 +252,15 @@ class Parser:
         return expression.Dict(data_pairs)
 
     def list(self):
-        data: List[expression.Expression] = []
-        while not self.peek().tokentype == TokenType.RIGHT_BRACKET:
-            while self.check(TokenType.EOL):
-                self.advance()
-            value = self.parse_expression()
-            data.append(value)
-            if self.peek().tokentype == TokenType.COMMA:
-                self.consume(TokenType.COMMA, "Expected comma")
-            while self.check(TokenType.EOL):
-                self.advance()
+        if self.peek().tokentype == TokenType.RIGHT_BRACKET:
+            self.consume(TokenType.RIGHT_BRACKET,
+                         "Expected ']' to close an empty list.")
+            return expression.List(expression.ExpressionList([]))
+        expr = self.expression_list()
         self.consume(TokenType.RIGHT_BRACKET, "Expect ']' to close list")
-        return expression.List(data)
+        if isinstance(expr, expression.Starred):
+            return expression.List(expr)
+        return expression.List(expr.values)
 
     def consume(self, tokentype: TokenType, message: str):
         if self.check(tokentype):

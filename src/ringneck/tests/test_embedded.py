@@ -50,3 +50,31 @@ def test_set_and_get_global():
     run(program, global_variables=data)
 
     assert data['foo'] == data['bar']
+
+
+def test_set_from_function():
+    def foo():
+        return 'bar'
+
+    program = """$.a = foo()"""
+    data = {}
+
+    run(program, global_variables=data, builtins={'foo': foo})
+
+    assert data == {'a': 'bar'}
+
+
+def test_global_variable_access():
+    def custom():
+        return state['b']
+
+    get_global = """b=12
+    $.c = custom()
+    """
+
+    data = {'a': 19}
+
+    run(get_global, global_variables=data,
+        builtins={'custom': custom})
+
+    assert data == {'a': 19, 'c': 12}

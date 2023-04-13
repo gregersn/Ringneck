@@ -1,5 +1,5 @@
 from typing import Any, List
-from ringneck.tokens import Token, TokenType
+from ringneck.tokens import Token, TokenType, keywords
 from ringneck.error_handler import ErrorHandler
 
 
@@ -35,29 +35,55 @@ class Scanner:
         char = self.advance()
         if char == '+':
             return self.add_token(TokenType.PLUS, '+')
+        if char == '-':
+            return self.add_token(TokenType.MINUS, '-')
         if char == '*':
             return self.add_token(TokenType.STAR, '*')
+        if char == '/':
+            return self.add_token(TokenType.SLASH, '/')
+
+        if char == '%':
+            return self.add_token(TokenType.PERCENT, '%')
+
+        if char == '<':
+            if self.peek() == '=':
+                self.advance()
+                return self.add_token(TokenType.LESS_EQUAL, '<=')
+            return self.add_token(TokenType.LESS, '<')
+        if char == '>':
+            if self.peek() == '=':
+                self.advance()
+                return self.add_token(TokenType.GREATER_EQUAL, '>=')
+            return self.add_token(TokenType.GREATER, '>')
 
         if char == '(':
             return self.add_token(TokenType.LEFT_PAREN, '(')
-
         if char == ')':
             return self.add_token(TokenType.RIGHT_PAREN, ')')
-
         if char == '{':
             return self.add_token(TokenType.LEFT_BRACE, '{')
-
         if char == '}':
             return self.add_token(TokenType.RIGHT_BRACE, '}')
-
         if char == '[':
             return self.add_token(TokenType.LEFT_BRACKET, '[')
-
         if char == ']':
             return self.add_token(TokenType.RIGHT_BRACKET, ']')
 
         if char == '=':
+            if self.peek() == '=':
+                self.advance()
+                return self.add_token(TokenType.EQUAL_EQUAL, '==')
             return self.add_token(TokenType.EQUAL, char)
+
+        if char == '!':
+            if self.peek() == '=':
+                self.advance()
+                return self.add_token(TokenType.BANG_EQUAL, '!=')
+
+        if char == '?':
+            if self.peek() == '=':
+                self.advance()
+                return self.add_token(TokenType.MAYBE_EQUAL, '?=')
 
         if char == '.':
             return self.add_token(TokenType.DOT, char)
@@ -84,10 +110,11 @@ class Scanner:
             return
 
         if char == '\n':
-            while self.peek() == '\n':
-                self.advance()
             if self._column > 1:
                 self.add_token(TokenType.EOL)
+            while self.peek() == '\n':
+                self.advance()
+                self.advance_line()
             self.advance_line()
             return
 
@@ -97,6 +124,8 @@ class Scanner:
     def comment(self):
         while self.peek() != '\n':
             self.advance()
+        self.advance_line()
+        self.advance()
         return
 
     def advance_line(self):
@@ -136,8 +165,10 @@ class Scanner:
     def identifier(self):
         while self.peek().isalnum() or self.peek() in ['_', '.']:
             self.advance()
-        self.add_token(TokenType.IDENTIFIER,
-                       (self.source[self._start:self._current]))
+
+        identifier = self.source[self._start:self._current]
+        identifier_type = keywords.get(identifier, TokenType.IDENTIFIER)
+        self.add_token(identifier_type, identifier)
 
     def peek(self):
         if self.is_at_end():

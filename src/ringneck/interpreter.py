@@ -17,7 +17,7 @@ class Interpreter(ExpressionVisitor[Expression],
                  builtins: Optional[Dict[str, Any]] = None,
                  **kwargs: Any):
         super().__init__(**kwargs)
-        if global_variables:
+        if global_variables is not None:
             self.globals = global_variables
         self.builtins = builtins or {}
 
@@ -46,31 +46,86 @@ class Interpreter(ExpressionVisitor[Expression],
         return self.evaluate(expr.expression)
 
     def visit_Binary_Expression(self, expr: Binary):
-        if expr.operator.tokentype == TokenType.PLUS:
-            return expr.left.accept(self) + expr.right.accept(self)
+        try:
+            if expr.operator.tokentype == TokenType.PLUS:
+                return expr.left.accept(self) + expr.right.accept(self)
+
+            if expr.operator.tokentype == TokenType.MINUS:
+                return expr.left.accept(self) - expr.right.accept(self)
+
+            if expr.operator.tokentype == TokenType.STAR:
+                left_value = expr.left.accept(self)
+                right_value = expr.right.accept(self)
+                return left_value * right_value
+
+            if expr.operator.tokentype == TokenType.SLASH:
+                return expr.left.accept(self) / expr.right.accept(self)
+
+            if expr.operator.tokentype == TokenType.LESS:
+                return expr.left.accept(self) < expr.right.accept(self)
+
+            if expr.operator.tokentype == TokenType.LESS_EQUAL:
+                return expr.left.accept(self) <= expr.right.accept(self)
+
+            if expr.operator.tokentype == TokenType.GREATER:
+                return expr.left.accept(self) > expr.right.accept(self)
+
+            if expr.operator.tokentype == TokenType.GREATER_EQUAL:
+                return expr.left.accept(self) >= expr.right.accept(self)
+
+            if expr.operator.tokentype == TokenType.AND:
+                return expr.left.accept(self) and expr.right.accept(self)
+
+            if expr.operator.tokentype == TokenType.EQUAL_EQUAL:
+                return expr.left.accept(self) == expr.right.accept(self)
+
+            if expr.operator.tokentype == TokenType.BANG_EQUAL:
+                return expr.left.accept(self) != expr.right.accept(self)
+        except TypeError as exp:
+            raise RuntimeError(
+                f"Wrong types in expression at {expr.operator.line}, {expr.operator.column}") from exp
+
+        raise RuntimeError(f"Unknown operator '{expr.operator.lexeme}'")
 
     def visit_Expression_Statement(self, stmt: statement.Expression):
         return self.evaluate(stmt.expr)
 
+    def visit_Tuple_Expression(self, expr: expression.Tuple):
+        return tuple([v.accept(self) for v in expr.values])
+
     def visit_Assign_Expression(self, expr: expression.Assign):
+        if expr.operator.tokentype == TokenType.MAYBE_EQUAL:
+            if self.get(expr.name.literal) is not None:
+                return
         self.set(expr.name.literal, self.evaluate(expr.value))
+
+    def visit_MultiAssign_Expression(self, expr: expression.MultiAssign):
+        identifiers = [v.name.literal for v in expr.identifiers.values]
+        for identifier, value in zip(identifiers, expr.values.values):
+            self.set(f"{identifier}", self.evaluate(value))
 
     def visit_AssignIterator_Expression(self, expr: expression.AssignIterator):
         prefix = expr.iterator.prefix.literal
         iterator = expr.iterator.iterator.accept(self)
 
         for it in iterator:
+            self.state['%'] = it
             self.set(f"{prefix}{it}", self.evaluate(expr.value))
+        if '%' in self.state:
+            del self.state['%']
 
     def visit_Variable_Expression(self, expr: expression.Variable):
         return self.get(expr.name.literal)
+
+    def visit_IteratorValue_Expression(self, expr: expression.IteratorValue):
+        return self.state.get(expr.token.lexeme, None)
 
     def visit_VariableIterator_Expression(self,
                                           expr: expression.VariableIterator):
         prefix = expr.prefix.literal
         iterator = expr.iterator.accept(self)
 
-        raise NotImplementedError
+        return [self.get(f"{prefix}{it}") for it in iterator]
 
     def visit_Dict_Expression(self, expr: expression.Dict):
         output: Dict[Any, Any] = {}
@@ -84,6 +139,21 @@ class Interpreter(ExpressionVisitor[Expression],
         return output
 
     def visit_List_Expression(self, expr: expression.List):
+        if isinstance(expr.values, expression.Starred):
+            values = self.evaluate(expr.values)
+            if values is None:
+                raise RuntimeError(
+                    f"Expected an iterable, got NoneType near {expr.values.operator.line} {expr.values.operator.column}")
+            return list(values)
+
+        if isinstance(expr.values, expression.ExpressionList):
+            output: List[Any] = []
+            for entry in expr.values.expressions:
+                value = entry.accept(self)
+                output.append(value)
+
+            return output
+
         output: List[Any] = []
         for entry in expr.values:
             value = entry.accept(self)
@@ -95,10 +165,27 @@ class Interpreter(ExpressionVisitor[Expression],
         callee = self.evaluate(expr.callee)
 
         arguments: List[Any] = []
-        for argument in expr.arguments:
+        for argument in expr.arguments.expressions:
             arguments.append(self.evaluate(argument))
 
-        return callee(*arguments)
+        if hasattr(callee, '__globals__'):
+            callee.__globals__['state'] = self.state
+            callee.__globals__['globals'] = self.globals
+
+        try:
+            return callee(*arguments)
+        except (AttributeError, TypeError) as exc:
+            raise RuntimeError(f"Error in expression: {expr}") from exc
+
+    def visit_Conditional_Expression(self, expr: expression.Conditional):
+        if expr.condition.accept(self):
+            return expr.left.accept(self)
+
+        if expr.right is not None:
+            return expr.right.accept(self)
+
+    def visit_Starred_Expression(self, expr: expression.Starred):
+        return self.evaluate(expr.value)
 
     def get(self, variable_address: str):
         parts = variable_address.split('.')
