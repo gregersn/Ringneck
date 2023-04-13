@@ -30,3 +30,14 @@ def test_interpreter_state(program: str, state: Dict[str, Any]):
     interpreter = Interpreter()
     interpreter.interpret(expression)
     assert interpreter.state == state
+
+
+@pytest.mark.parametrize("program,globals", [(case.program, case.globals) for case in testcases if case.globals is not None])
+def test_interpreter_globals(program: str, globals: Dict[str, Any]):
+    scanner = Scanner(program)
+    parser = Parser(scanner.scan_tokens())
+    expression = parser.parse()
+
+    interpreter = Interpreter()
+    interpreter.interpret(expression)
+    assert interpreter.globals == globals

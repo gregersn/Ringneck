@@ -1,5 +1,6 @@
 from dataclasses import dataclass
-from typing import Any, List as TList
+import operator
+from typing import Any, List as TList, Optional, Union
 
 from ringneck.ast.base import Node, Visitor, VisitorType
 from ..tokens import Token
@@ -12,6 +13,11 @@ class ExpressionVisitor(Visitor[VisitorType]):
 @dataclass
 class Expression(Node):
     ...
+
+
+@dataclass
+class ExpressionList(Expression):
+    expressions: TList['Expression']
 
 
 @dataclass
@@ -51,12 +57,27 @@ class VariableIterator(Expression):
 @dataclass
 class Assign(Expression):
     name: Token
+    operator: Token
     value: Any
+
+
+@dataclass
+class MultiAssign(Expression):
+    identifiers: Union['Tuple', 'List']
+    operator: Token
+    values: Union['Tuple', 'List']
 
 
 @dataclass
 class AssignIterator(Expression):
     iterator: VariableIterator
+    operator: Token
+    value: Any
+
+
+@dataclass
+class Starred(Expression):
+    operator: Token
     value: Any
 
 
@@ -72,12 +93,29 @@ class Dict(Expression):
 
 
 @dataclass
+class Tuple(Expression):
+    values: TList[Expression] | ExpressionList | Starred
+
+
+@dataclass
 class List(Expression):
-    values: TList[Expression]
+    values: TList[Expression] | ExpressionList | Starred
 
 
 @dataclass
 class Call(Expression):
     callee: Expression
     paren: Token
-    arguments: TList[Expression]
+    arguments: Optional[ExpressionList]
+
+
+@dataclass
+class Conditional(Expression):
+    left: Expression
+    condition: Expression
+    right: Expression
+
+
+@dataclass
+class IteratorValue(Expression):
+    token: Token

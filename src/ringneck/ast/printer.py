@@ -48,6 +48,12 @@ class ASTPrinter(Visitor[VisitorType]):
         return f"(dict {', '.join([v.accept(self) for v in expr.values])})"
 
     def visit_List_Expression(self, expr: expression.List):
+        if isinstance(expr.values, expression.Starred):
+            return expr.values.accept(self)
+
+        if isinstance(expr.values, expression.ExpressionList):
+            return f"(list {', '.join([str(v.accept(self)) for v in expr.values.expressions])})"
+
         return f"(list {', '.join([str(v.accept(self)) for v in expr.values])})"
 
     def visit_Variable_Expression(self, expr: expression.Variable):
@@ -55,3 +61,21 @@ class ASTPrinter(Visitor[VisitorType]):
 
     def visit_VariableIterator_Expression(self, expr: expression.VariableIterator):
         return f"{expr.prefix.literal}{expr.iterator.accept(self)}"
+
+    def visit_Conditional_Expression(self, expr: expression.Conditional):
+        return f"(if {expr.left.accept(self)} {expr.condition.accept(self)} {expr.right.accept(self)})"
+
+    def visit_Call_Expression(self, expr: expression.Call):
+        return f"(call {expr.callee.accept(self)} {' '.join([str(arg.accept(self)) for arg in expr.arguments.expressions])})"
+
+    def visit_MultiAssign_Expression(self, expr: expression.MultiAssign):
+        return (f'(assign {expr.identifiers.accept(self)} {expr.values.accept(self)})')
+
+    def visit_Tuple_Expression(self, expr: expression.Tuple):
+        return f"(tuple {', '.join(str(v.accept(self)) for v in expr.values)})"
+
+    def visit_ExpressionList_Expression(self, expr: expression.ExpressionList):
+        return f"(expressionlist {', '.join(str(v.accept(self)) for v in expr.expressions)})"
+
+    def visit_Starred_Expression(self, expr: expression.Starred):
+        return self.parenthesize("starred", expr.value)

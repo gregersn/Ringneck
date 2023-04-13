@@ -12,12 +12,14 @@ class TokenType(Enum):
     STAR = '*'
 
     EQUAL = '='
+    MAYBE_EQUAL = '?='
 
     DOLLAR = '$'
     DOT = '.'
     COLON = ':'
     COMMA = ','
     HASH = '#'
+    PERCENT = '%'
 
     GREATER = '>'
     GREATER_EQUAL = '>='
@@ -44,6 +46,28 @@ class TokenType(Enum):
 
     EOL = 'EOL'
     EOF = 'EOF'
+
+    # Keywords
+    IF = 'if'
+    ELSE = 'else'
+
+    AND = 'and'
+    OR = 'or'
+    NOT = 'not'
+
+    TRUE = 'True'
+    FALSE = 'False'
+
+
+keywords = {
+    'if': TokenType.IF,
+    'else': TokenType.ELSE,
+    'and': TokenType.AND,
+    'or': TokenType.OR,
+    'not': TokenType.NOT,
+    'True': TokenType.TRUE,
+    'False': TokenType.FALSE
+}
 
 
 @dataclass
