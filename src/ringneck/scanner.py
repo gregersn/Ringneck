@@ -34,8 +34,16 @@ class Scanner:
     def scan_token(self):
         char = self.advance()
         if char == '+':
+            if self.peek() == '=':
+                self.advance()
+                return self.add_token(TokenType.PLUS_EQUAL, '+=')
             return self.add_token(TokenType.PLUS, '+')
+
         if char == '-':
+            if self.peek() == '=':
+                self.advance()
+                return self.add_token(TokenType.MINUS_EQUAL, '-=')
+
             return self.add_token(TokenType.MINUS, '-')
         if char == '*':
             return self.add_token(TokenType.STAR, '*')

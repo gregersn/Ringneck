@@ -52,15 +52,34 @@ class Parser:
         return statements
 
     def statement(self):
+        if self.match(TokenType.IF):
+            return self.if_statement()
+        if self.match(TokenType.REPEAT):
+            return self.repeat_statement()
         return self.expression_statement()
 
     def expression_statement(self):
         expr = self.parse_expression()
 
-        if not self.is_at_end():
-            self.consume(
-                TokenType.EOL, f"Expect newline after expression, got {self.peek().tokentype}")
         return statement.Expression(expr)
+
+    def repeat_statement(self):
+        stmt = self.statement()
+        self.consume(TokenType.TIMES, "Except TIMES after REPEAT statement.")
+        times = self.parse_expression()
+        return statement.Repeat(times, stmt)
+
+    def if_statement(self):
+        condition = self.parse_expression()
+        self.consume(TokenType.COLON, "Expected colon after if statement")
+        self.consume(TokenType.EOL, "Expected a newline")
+        then_branch = []
+        while not self.match(TokenType.ENDIF):
+            then_branch.append(self.statement())
+            while self.match(TokenType.EOL):
+                ...
+        stmt = statement.If(condition, then_branch)
+        return stmt
 
     def expression_list(self):
         expr = self.equality()
@@ -85,8 +104,6 @@ class Parser:
             value = self.assignment()
 
             if isinstance(expr, (expression.Tuple, expression.List)):
-                assert isinstance(value, expression.Tuple)
-                assert len(expr.values) == len(value.values)
                 return expression.MultiAssign(expr, equals, value)
             if isinstance(expr, expression.Variable):
                 name = expr.name
@@ -94,6 +111,13 @@ class Parser:
             if isinstance(expr, expression.VariableIterator):
                 return expression.AssignIterator(expr, equals, value)
             self.error(equals, "Invalid assignment target.")
+        if self.match(TokenType.MINUS_EQUAL, TokenType.PLUS_EQUAL):
+            operator = self.previous()
+            if isinstance(expr, expression.Tuple):
+                self.error(
+                    operator, "'tuple' is illegal for augmented assignment.")
+            value = self.equality()
+            return expression.AugmentedAssign(expr, operator, value)
         return expr
 
     def equality(self):

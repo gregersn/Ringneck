@@ -1,7 +1,7 @@
 from typing import Any, List
 from ringneck.ast.base import VisitorType, Visitor
 
-from ringneck.ast.expression import Binary, Expression, Grouping, Literal
+from ringneck.ast.expression import AugmentedAssign, Binary, Expression, Grouping, Literal
 from ringneck.ast import statement, expression
 
 
@@ -32,8 +32,8 @@ class ASTPrinter(Visitor[VisitorType]):
     def visit_Binary_Expression(self, expr: Binary):
         return self.parenthesize(expr.operator.lexeme, expr.left, expr.right)
 
-    def visit_Expression_Statement(self, stmt: statement.Expression):
-        return str(stmt.expr.accept(self))
+    def visit_AugmentedAssign_Expression(self, expr: AugmentedAssign):
+        return self.parenthesize(expr.operator.lexeme, expr.left, expr.right)
 
     def visit_Assign_Expression(self, expr: expression.Assign):
         return self.parenthesize(f'assign {expr.name.literal}', expr.value)
@@ -79,3 +79,12 @@ class ASTPrinter(Visitor[VisitorType]):
 
     def visit_Starred_Expression(self, expr: expression.Starred):
         return self.parenthesize("starred", expr.value)
+
+    def visit_Expression_Statement(self, stmt: statement.Expression):
+        return str(stmt.expr.accept(self))
+
+    def visit_If_Statement(self, stmt: statement.If):
+        return f"(if {stmt.condition.accept(self)} {' '.join([s.accept(self) for s in stmt.thenbranch])})"
+
+    def visit_Repeat_Statement(self, stmt: statement.Repeat):
+        return f"(repeat {stmt.count.accept(self)} {stmt.stmt.accept(self)})"
