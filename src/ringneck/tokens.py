@@ -14,6 +14,9 @@ class TokenType(Enum):
     EQUAL = '='
     MAYBE_EQUAL = '?='
 
+    PLUS_EQUAL = '+='
+    MINUS_EQUAL = '-='
+
     DOLLAR = '$'
     DOT = '.'
     COLON = ':'
@@ -50,6 +53,10 @@ class TokenType(Enum):
     # Keywords
     IF = 'if'
     ELSE = 'else'
+    ENDIF = 'endif'
+
+    REPEAT = 'repeat'
+    TIMES = 'times'
 
     AND = 'and'
     OR = 'or'
@@ -62,6 +69,9 @@ class TokenType(Enum):
 keywords = {
     'if': TokenType.IF,
     'else': TokenType.ELSE,
+    'endif': TokenType.ENDIF,
+    'repeat': TokenType.REPEAT,
+    'times': TokenType.TIMES,
     'and': TokenType.AND,
     'or': TokenType.OR,
     'not': TokenType.NOT,

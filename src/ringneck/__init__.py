@@ -15,6 +15,8 @@ def run(program: str, *, global_variables: Any = None, builtins: Any = None):
     tree = parser.parse()
 
     if ErrorHandler.errors:
+        for error in ErrorHandler.errors:
+            print(error)
         return
 
     interpreter = Interpreter(
