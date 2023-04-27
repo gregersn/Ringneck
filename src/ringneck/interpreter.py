@@ -76,6 +76,9 @@ class Interpreter(ExpressionVisitor[Expression],
             if expr.operator.tokentype == TokenType.AND:
                 return expr.left.accept(self) and expr.right.accept(self)
 
+            if expr.operator.tokentype == TokenType.OR:
+                return expr.left.accept(self) or expr.right.accept(self)
+
             if expr.operator.tokentype == TokenType.EQUAL_EQUAL:
                 return expr.left.accept(self) == expr.right.accept(self)
 
@@ -83,12 +86,20 @@ class Interpreter(ExpressionVisitor[Expression],
                 return expr.left.accept(self) != expr.right.accept(self)
         except TypeError as exp:
             raise RuntimeError(
-                f"Wrong types in expression at {expr.operator.line}, {expr.operator.column}") from exp
+                f"Wrong types in expression at {expr.operator.line}, {expr.operator.column}: {exp}") from exp
 
         raise RuntimeError(f"Unknown operator '{expr.operator.lexeme}'")
 
-    def visit_Expression_Statement(self, stmt: statement.Expression):
-        return self.evaluate(stmt.expr)
+    def visit_AugmentedAssign_Expression(self, expr: expression.AugmentedAssign):
+        if expr.operator.tokentype == TokenType.MINUS_EQUAL:
+            return self.set(expr.left.name.literal, self.get(
+                expr.left.name.literal) - self.evaluate(expr.right))
+
+        if expr.operator.tokentype == TokenType.PLUS_EQUAL:
+            return self.set(expr.left.name.literal, self.get(
+                expr.left.name.literal) + self.evaluate(expr.right))
+
+        raise RuntimeError(f"Unknown operator '{expr.operator.lexeme}'")
 
     def visit_Tuple_Expression(self, expr: expression.Tuple):
         return tuple([v.accept(self) for v in expr.values])
@@ -101,8 +112,12 @@ class Interpreter(ExpressionVisitor[Expression],
 
     def visit_MultiAssign_Expression(self, expr: expression.MultiAssign):
         identifiers = [v.name.literal for v in expr.identifiers.values]
-        for identifier, value in zip(identifiers, expr.values.values):
-            self.set(f"{identifier}", self.evaluate(value))
+        if isinstance(expr.values, (expression.Variable, expression.Call)):
+            values = self.evaluate(expr.values)
+        else:
+            values = [self.evaluate(v) for v in expr.values.values]
+        for identifier, value in zip(identifiers, values):
+            self.set(f"{identifier}", value)
 
     def visit_AssignIterator_Expression(self, expr: expression.AssignIterator):
         prefix = expr.iterator.prefix.literal
@@ -164,8 +179,12 @@ class Interpreter(ExpressionVisitor[Expression],
     def visit_Call_Expression(self, expr: expression.Call):
         callee = self.evaluate(expr.callee)
 
+        if isinstance(expr.arguments, expression.Starred):
+            in_arguments = self.evaluate(expr.arguments)
+        in_arguments = expr.arguments.expressions
+
         arguments: List[Any] = []
-        for argument in expr.arguments.expressions:
+        for argument in in_arguments:
             arguments.append(self.evaluate(argument))
 
         if hasattr(callee, '__globals__'):
@@ -174,8 +193,11 @@ class Interpreter(ExpressionVisitor[Expression],
 
         try:
             return callee(*arguments)
-        except (AttributeError, TypeError) as exc:
-            raise RuntimeError(f"Error in expression: {expr}") from exc
+        except AttributeError as error:
+            raise RuntimeError(
+                f"Attribute error in expression: {error}") from error
+        except TypeError as error:
+            raise RuntimeError(f"Type error in expression: {error}") from error
 
     def visit_Conditional_Expression(self, expr: expression.Conditional):
         if expr.condition.accept(self):
@@ -230,3 +252,15 @@ class Interpreter(ExpressionVisitor[Expression],
             result[parts[0]] = value
         else:
             setattr(result, parts[0], value)
+
+    def visit_Expression_Statement(self, stmt: statement.Expression):
+        return self.evaluate(stmt.expr)
+
+    def visit_If_Statement(self, stmt: statement.If):
+        if self.evaluate(stmt.condition):
+            res = [self.execute(s) for s in stmt.thenbranch]
+            return res
+
+    def visit_Repeat_Statement(self, stmt: statement.Repeat):
+        for _ in range(self.evaluate(stmt.count)):
+            self.execute(stmt.stmt)

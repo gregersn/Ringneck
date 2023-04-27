@@ -26,6 +26,9 @@ class Binary(Expression):
     operator: Token
     right: Expression
 
+    def __str__(self):
+        return f"Binary({self.left} {self.operator.literal} {self.right}"
+
 
 @dataclass
 class Grouping(Expression):
@@ -47,6 +50,9 @@ class Unary(Expression):
 class Variable(Expression):
     name: Token
 
+    def __str__(self):
+        return f"Variable({self.name.literal})"
+
 
 @dataclass
 class VariableIterator(Expression):
@@ -65,7 +71,7 @@ class Assign(Expression):
 class MultiAssign(Expression):
     identifiers: Union['Tuple', 'List']
     operator: Token
-    values: Union['Tuple', 'List']
+    values: Expression
 
 
 @dataclass
@@ -106,7 +112,7 @@ class List(Expression):
 class Call(Expression):
     callee: Expression
     paren: Token
-    arguments: Optional[ExpressionList]
+    arguments: Optional[ExpressionList | Starred]
 
 
 @dataclass
@@ -119,3 +125,10 @@ class Conditional(Expression):
 @dataclass
 class IteratorValue(Expression):
     token: Token
+
+
+@dataclass
+class AugmentedAssign(Expression):
+    left: Variable
+    operator: Token
+    right: Expression

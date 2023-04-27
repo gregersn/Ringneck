@@ -73,5 +73,27 @@ b = 2
     TestCase("a=[*(1, 2, 3)]", 12,
              ["(assign a (starred (tuple 1, 2, 3)))"], state={'a': [1, 2, 3]}),
     TestCase("$.['a', 'b', 'c'] = %", 10, globals={
-             'a': 'a', 'b': 'b', 'c': 'c'})
+             'a': 'a', 'b': 'b', 'c': 'c'}),
+    TestCase("a=(1, 2)\nb, c = a", 13, [
+             "(assign a (tuple 1, 2))", "(assign (tuple b, c) a)"], state={'a': (1, 2), 'b': 1, 'c': 2}),
+    TestCase("a=1\na-=1", 7, ["(assign a 1)",
+             "(-= a 1)"], state={'a': 0}),
+    TestCase("""a=1
+if a > 0:
+b = 2
+endif
+if a > 4:
+a=6
+endif
+if b < 3 and a < 5:
+a=0
+c=3
+endif""", 47,
+             ["(assign a 1)", "(if (> a 0) (assign b 2))", "(if (> a 4) (assign a 6))",
+              "(if (and (< b 3) (< a 5)) (assign a 0) (assign c 3))"],
+             state={'a': 0, 'b': 2, 'c': 3}),
+    TestCase("a=0\nrepeat a += 1 times 5", 10,
+             ["(assign a 0)", "(repeat 5 (+= a 1))"], state={'a': 5}),
+    TestCase("a=foo(*bar.baz)", 7, ["(assign a (call foo (starred bar.baz)))"])
+
 ]
