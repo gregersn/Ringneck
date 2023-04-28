@@ -193,8 +193,10 @@ class Interpreter(ExpressionVisitor[Expression],
 
         try:
             return callee(*arguments)
-        except AttributeError as error: 
-            raise RuntimeError(f"Attribute error in expression: {error}") from error
+
+        except AttributeError as error:
+            raise RuntimeError(
+                f"Attribute error in expression: {error}") from error
         except TypeError as error:
             raise RuntimeError(f"Type error in expression: {error}") from error
 
