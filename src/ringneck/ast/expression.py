@@ -55,6 +55,13 @@ class Variable(Expression):
 
 
 @dataclass
+class SubVariable(Expression):
+    parent: Token
+    operator: Token
+    child: Token
+
+
+@dataclass
 class VariableIterator(Expression):
     prefix: Expression
     iterator: 'List'

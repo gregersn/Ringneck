@@ -171,7 +171,7 @@ class Scanner:
                 self.source[self._start:self._current], 10))
 
     def identifier(self):
-        while self.peek().isalnum() or self.peek() in ['_', '.']:
+        while self.peek().isalnum() or self.peek() in ['_']:
             self.advance()
 
         identifier = self.source[self._start:self._current]

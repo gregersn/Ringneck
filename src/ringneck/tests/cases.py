@@ -35,9 +35,9 @@ testcases: Sequence[TestCase] = [
     TestCase('a = [1, 2, 3]', 9, ['(assign a (list 1, 2, 3))']),
     TestCase('a = {"foo": "bar"}', 7, [
              '(assign a (dict foo: bar))'], state={'a': {'foo': 'bar'}}),
-    TestCase('$.foo = 3', 3, ['(assign $.foo 3)'], [None]),
+    TestCase('$.foo = 3', 5, ['(assign $.foo 3)'], [None]),
     TestCase('a = [1, 2]', 7, ['(assign a (list 1, 2))']),
-    TestCase('a={"x": 1, "y": 2, "z": 3}\na.["x", "y"] = 3', 24,
+    TestCase('a={"x": 1, "y": 2, "z": 3}\na.["x", "y"] = 3', 25,
              ['(assign a (dict x: 1, y: 2, z: 3))',
               '(assign a.(list x, y) 3)'],
              state={'a': {'x': 3, 'y': 3, 'z': 3}}),
@@ -54,7 +54,7 @@ testcases: Sequence[TestCase] = [
              'a': True, 'b': False, 'c': False}),
     TestCase("a = 5 >= 4\nb = 5 >= 5\nc = 5 >= 6", state={
              'a': True, 'b': True, 'c': False}),
-    TestCase("$.HP = ($.DEX + $.STR) / 10 + 1", 11),
+    TestCase("$.HP = ($.DEX + $.STR) / 10 + 1", 17),
     TestCase("a = 7 if 1 < 2 else 9", 9, [
              '(assign a (if 7 (< 1 2) 9))'], state={'a': 7}),
     TestCase("a = 7 if 2 < 1 else 9", 9, state={'a': 9}),
@@ -62,7 +62,7 @@ testcases: Sequence[TestCase] = [
     TestCase('a = 1\nb ?= 2\na ?= 3', 11, state={'a': 1, 'b': 2}),
     TestCase('a = foo(bar, b) + baz(zoo, c)', 15,
              ['(assign a (+ (call foo bar b) (call baz zoo c)))']),
-    TestCase('$.a = foo_ooo(ba_ar, $.c) + some_function(a_name, $.d)', 15,
+    TestCase('$.a = foo_ooo(ba_ar, $.c) + some_function(a_name, $.d)', 21,
              ['(assign $.a (+ (call foo_ooo ba_ar $.c) (call some_function a_name $.d)))']),
     TestCase("""a = 1
 # comment
@@ -72,7 +72,7 @@ b = 2
              "(assign (tuple a, b) (tuple 1, 2))"], state={'a': 1, 'b': 2}),
     TestCase("a=[*(1, 2, 3)]", 12,
              ["(assign a (starred (tuple 1, 2, 3)))"], state={'a': [1, 2, 3]}),
-    TestCase("$.['a', 'b', 'c'] = %", 10, globals={
+    TestCase("$.['a', 'b', 'c'] = %", 11, globals={
              'a': 'a', 'b': 'b', 'c': 'c'}),
     TestCase("a=(1, 2)\nb, c = a", 13, [
              "(assign a (tuple 1, 2))", "(assign (tuple b, c) a)"], state={'a': (1, 2), 'b': 1, 'c': 2}),
@@ -94,6 +94,9 @@ endif""", 47,
              state={'a': 0, 'b': 2, 'c': 3}),
     TestCase("a=0\nrepeat a += 1 times 5", 10,
              ["(assign a 0)", "(repeat 5 (+= a 1))"], state={'a': 5}),
-    TestCase("a=foo(*bar.baz)", 7, ["(assign a (call foo (starred bar.baz)))"])
+    TestCase("a=foo(*bar.baz)", 9,
+             ["(assign a (call foo (starred bar.baz)))"]),
+    TestCase("a={}\na.'key with spaces' = 5", 10,
+             ["(assign a (dict ))", "(assign a.'key with spaces' 5)"], state={'a': {'key with spaces': 5}})
 
 ]
