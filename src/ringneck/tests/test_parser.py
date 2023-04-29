@@ -2,6 +2,7 @@ import pytest
 from typing import List
 
 from ringneck.ast.printer import ASTPrinter
+from ringneck.error_handler import ErrorHandler
 
 from ringneck.tests.cases import testcases
 from ringneck.scanner import Scanner
@@ -15,4 +16,5 @@ def test_parse(program: str, result: List[str]):
     parser = Parser(tokens)
     expression = parser.parse()
     res = ASTPrinter().print(expression)
+    assert not ErrorHandler.errors, ErrorHandler.errors
     assert res == result, program
