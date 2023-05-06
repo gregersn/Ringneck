@@ -24,7 +24,10 @@ class ASTPrinter(Visitor[VisitorType]):
         return "".join(output)
 
     def visit_Literal_Expression(self, literal: Literal):
-        return literal.value
+        value = literal.value
+        if isinstance(value, str):
+            return f"'{value}'"
+        return value
 
     def visit_Grouping_Expression(self, grouping: Grouping):
         return self.parenthesize("grouping", grouping.expression)
@@ -36,7 +39,7 @@ class ASTPrinter(Visitor[VisitorType]):
         return self.parenthesize(expr.operator.lexeme, expr.left, expr.right)
 
     def visit_Assign_Expression(self, expr: expression.Assign):
-        return self.parenthesize(f'assign {expr.name.literal}', expr.value)
+        return self.parenthesize(f'assign {expr.name.accept(self)}', expr.value)
 
     def visit_AssignIterator_Expression(self, expr: expression.AssignIterator):
         return self.parenthesize(f'assign {expr.iterator.accept(self)}', expr.value)
@@ -57,7 +60,12 @@ class ASTPrinter(Visitor[VisitorType]):
         return f"(list {', '.join([str(v.accept(self)) for v in expr.values])})"
 
     def visit_Variable_Expression(self, expr: expression.Variable):
+        if expr.sub_selectors:
+            return f"{expr.name.literal}.{'.'.join([str(v.accept(self)) for v in expr.sub_selectors])}"
         return f"{expr.name.literal}"
+
+    def visit_Selector_Expression(self, expr: expression.Selector):
+        return expr.name
 
     def visit_VariableIterator_Expression(self, expr: expression.VariableIterator):
         return f"{expr.prefix.literal}{expr.iterator.accept(self)}"
@@ -88,3 +96,6 @@ class ASTPrinter(Visitor[VisitorType]):
 
     def visit_Repeat_Statement(self, stmt: statement.Repeat):
         return f"(repeat {stmt.count.accept(self)} {stmt.stmt.accept(self)})"
+
+    def visit_SubVariable_Expression(self, expr: expression.SubVariable):
+        return f"{expr.parent.accept(self)}.{expr.child.accept(self)}"

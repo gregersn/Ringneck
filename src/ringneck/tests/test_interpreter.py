@@ -29,7 +29,7 @@ def test_interpreter_state(program: str, state: Dict[str, Any]):
 
     interpreter = Interpreter()
     interpreter.interpret(expression)
-    assert interpreter.state == state
+    assert dict(interpreter.state) == state
 
 
 @pytest.mark.parametrize("program,globals", [(case.program, case.globals) for case in testcases if case.globals is not None])
