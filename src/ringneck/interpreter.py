@@ -105,10 +105,16 @@ class Interpreter(ExpressionVisitor[Expression],
         return tuple([v.accept(self) for v in expr.values])
 
     def visit_Assign_Expression(self, expr: expression.Assign):
+        if isinstance(expr.name, expression.Variable):
+            var_name = expr.name.name.literal
+            if expr.name.sub_selectors:
+                var_name = f"{var_name}.{'.'.join([str(v.accept(self)) for v in expr.name.sub_selectors])}"
+        else:
+            var_name = self.evaluate(expr.name)
         if expr.operator.tokentype == TokenType.MAYBE_EQUAL:
-            if self.get(expr.name.literal) is not None:
+            if self.get(var_name) is not None:
                 return
-        self.set(expr.name.literal, self.evaluate(expr.value))
+        self.set(var_name, self.evaluate(expr.value))
 
     def visit_MultiAssign_Expression(self, expr: expression.MultiAssign):
         identifiers = [v.name.literal for v in expr.identifiers.values]
@@ -131,6 +137,9 @@ class Interpreter(ExpressionVisitor[Expression],
 
     def visit_Variable_Expression(self, expr: expression.Variable):
         return self.get(expr.name.literal)
+
+    def visit_Selector_Expression(self, expr: expression.Selector):
+        return expr.name
 
     def visit_IteratorValue_Expression(self, expr: expression.IteratorValue):
         return self.state.get(expr.token.lexeme, None)
@@ -264,3 +273,6 @@ class Interpreter(ExpressionVisitor[Expression],
     def visit_Repeat_Statement(self, stmt: statement.Repeat):
         for _ in range(self.evaluate(stmt.count)):
             self.execute(stmt.stmt)
+
+    def visit_SubVariable_Expression(self, expr: expression.SubVariable):
+        return ".".join([self.evaluate(expr.parent), self.evaluate(expr.child)])

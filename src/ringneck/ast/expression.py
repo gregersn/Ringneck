@@ -47,8 +47,14 @@ class Unary(Expression):
 
 
 @dataclass
+class Selector(Expression):
+    name: Token
+
+
+@dataclass
 class Variable(Expression):
     name: Token
+    sub_selectors: TList[Expression]
 
     def __str__(self):
         return f"Variable({self.name.literal})"
@@ -56,9 +62,9 @@ class Variable(Expression):
 
 @dataclass
 class SubVariable(Expression):
-    parent: Token
+    parent: Expression
     operator: Token
-    child: Token
+    child: Expression
 
 
 @dataclass
@@ -69,7 +75,7 @@ class VariableIterator(Expression):
 
 @dataclass
 class Assign(Expression):
-    name: Token
+    name: Expression
     operator: Token
     value: Any
 

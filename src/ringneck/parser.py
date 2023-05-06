@@ -105,9 +105,8 @@ class Parser:
 
             if isinstance(expr, (expression.Tuple, expression.List)):
                 return expression.MultiAssign(expr, equals, value)
-            if isinstance(expr, expression.Variable):
-                name = expr.name
-                return expression.Assign(name, equals, value)
+            if isinstance(expr, (expression.Variable, expression.SubVariable)):
+                return expression.Assign(expr, equals, value)
             if isinstance(expr, expression.VariableIterator):
                 return expression.AssignIterator(expr, equals, value)
             self.error(equals, "Invalid assignment target.")
@@ -232,7 +231,17 @@ class Parser:
                 iterator = self.primary()
                 return expression.VariableIterator(prefix, iterator)
 
-            return expression.Variable(self.previous())
+            identifier = self.previous()
+            sub_identifiers = []
+            while self.match(TokenType.DOT):
+                if self.match(TokenType.IDENTIFIER):
+                    sub_id = expression.Selector(self.previous().lexeme)
+                else:
+                    sub_id = self.call()
+                sub_identifiers.append(sub_id)
+
+            expr = expression.Variable(identifier, sub_identifiers)
+            return expr
 
         if self.match(TokenType.NUMBER, TokenType.STRING):
             return expression.Literal(self.previous().literal)
