@@ -8,14 +8,10 @@ from ringneck.error_handler import ErrorHandler
 from ringneck.tokens import TokenType
 
 
-class Interpreter(ExpressionVisitor[Expression],
-                  statement.StatementVisitor[statement.Statement]):
-
+class Interpreter(ExpressionVisitor[Expression], statement.StatementVisitor[statement.Statement]):
     globals: Optional[Any] = None
 
-    def __init__(self, global_variables: Optional[Any] = None,
-                 builtins: Optional[Dict[str, Any]] = None,
-                 **kwargs: Any):
+    def __init__(self, global_variables: Optional[Any] = None, builtins: Optional[Dict[str, Any]] = None, **kwargs: Any):
         super().__init__(**kwargs)
         if global_variables is not None:
             self.globals = global_variables
@@ -85,19 +81,16 @@ class Interpreter(ExpressionVisitor[Expression],
             if expr.operator.tokentype == TokenType.BANG_EQUAL:
                 return expr.left.accept(self) != expr.right.accept(self)
         except TypeError as exp:
-            raise RuntimeError(
-                f"Wrong types in expression at {expr.operator.line}, {expr.operator.column}: {exp}") from exp
+            raise RuntimeError(f"Wrong types in expression at {expr.operator.line}, {expr.operator.column}: {exp}") from exp
 
         raise RuntimeError(f"Unknown operator '{expr.operator.lexeme}'")
 
     def visit_AugmentedAssign_Expression(self, expr: expression.AugmentedAssign):
         if expr.operator.tokentype == TokenType.MINUS_EQUAL:
-            return self.set(expr.left.name.literal, self.get(
-                expr.left.name.literal) - self.evaluate(expr.right))
+            return self.set(expr.left.name.literal, self.get(expr.left.name.literal) - self.evaluate(expr.right))
 
         if expr.operator.tokentype == TokenType.PLUS_EQUAL:
-            return self.set(expr.left.name.literal, self.get(
-                expr.left.name.literal) + self.evaluate(expr.right))
+            return self.set(expr.left.name.literal, self.get(expr.left.name.literal) + self.evaluate(expr.right))
 
         raise RuntimeError(f"Unknown operator '{expr.operator.lexeme}'")
 
@@ -124,10 +117,10 @@ class Interpreter(ExpressionVisitor[Expression],
         iterator = expr.iterator.iterator.accept(self)
 
         for it in iterator:
-            self.state['%'] = it
+            self.state["%"] = it
             self.set(f"{prefix}{it}", self.evaluate(expr.value))
-        if '%' in self.state:
-            del self.state['%']
+        if "%" in self.state:
+            del self.state["%"]
 
     def visit_Variable_Expression(self, expr: expression.Variable):
         return self.get(expr.name.literal)
@@ -135,8 +128,7 @@ class Interpreter(ExpressionVisitor[Expression],
     def visit_IteratorValue_Expression(self, expr: expression.IteratorValue):
         return self.state.get(expr.token.lexeme, None)
 
-    def visit_VariableIterator_Expression(self,
-                                          expr: expression.VariableIterator):
+    def visit_VariableIterator_Expression(self, expr: expression.VariableIterator):
         prefix = expr.prefix.literal
         iterator = expr.iterator.accept(self)
 
@@ -157,8 +149,7 @@ class Interpreter(ExpressionVisitor[Expression],
         if isinstance(expr.values, expression.Starred):
             values = self.evaluate(expr.values)
             if values is None:
-                raise RuntimeError(
-                    f"Expected an iterable, got NoneType near {expr.values.operator.line} {expr.values.operator.column}")
+                raise RuntimeError(f"Expected an iterable, got NoneType near {expr.values.operator.line} {expr.values.operator.column}")
             return list(values)
 
         if isinstance(expr.values, expression.ExpressionList):
@@ -187,15 +178,14 @@ class Interpreter(ExpressionVisitor[Expression],
         for argument in in_arguments:
             arguments.append(self.evaluate(argument))
 
-        if hasattr(callee, '__globals__'):
-            callee.__globals__['state'] = self.state
-            callee.__globals__['globals'] = self.globals
+        if hasattr(callee, "__globals__"):
+            callee.__globals__["state"] = self.state
+            callee.__globals__["globals"] = self.globals
 
         try:
             return callee(*arguments)
         except AttributeError as error:
-            raise RuntimeError(
-                f"Attribute error in expression: {error}") from error
+            raise RuntimeError(f"Attribute error in expression: {error}") from error
         except TypeError as error:
             raise RuntimeError(f"Type error in expression: {error}") from error
 
@@ -210,8 +200,8 @@ class Interpreter(ExpressionVisitor[Expression],
         return self.evaluate(expr.value)
 
     def get(self, variable_address: str):
-        parts = variable_address.split('.')
-        if parts[0] == '$':
+        parts = variable_address.split(".")
+        if parts[0] == "$":
             if self.globals is None:
                 self.globals = {}
             source = self.globals
@@ -222,6 +212,10 @@ class Interpreter(ExpressionVisitor[Expression],
         result = source
         while parts:
             part = parts.pop(0)
+
+            if part[0] in ['"', "'"] and part[0] == part[-1]:
+                part = part[1:-1]
+
             if hasattr(result, part):
                 result = getattr(result, part)
 
@@ -230,8 +224,8 @@ class Interpreter(ExpressionVisitor[Expression],
         return result
 
     def set(self, variable_address: str, value: Any):
-        parts = variable_address.split('.')
-        if parts[0] == '$':
+        parts = variable_address.split(".")
+        if parts[0] == "$":
             if self.globals is None:
                 self.globals = {}
 
@@ -243,15 +237,21 @@ class Interpreter(ExpressionVisitor[Expression],
         result = source
         while len(parts) > 1:
             part = parts.pop(0)
+            if part[0] in ['"', "'"] and part[0] == part[-1]:
+                part = part[1:-1]
             if isinstance(result, Mapping):
                 result = result[part]
             else:
                 result = getattr(result, part)
 
+        part = parts[0]
+        if part[0] in ['"', "'"] and part[0] == part[-1]:
+            part = part[1:-1]
+
         if isinstance(result, MutableMapping):
-            result[parts[0]] = value
+            result[part] = value
         else:
-            setattr(result, parts[0], value)
+            setattr(result, part, value)
 
     def visit_Expression_Statement(self, stmt: statement.Expression):
         return self.evaluate(stmt.expr)
