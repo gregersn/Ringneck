@@ -41,6 +41,9 @@ include = ["ringneck*"]
 exclude = ["ringneck.tests*"]
 namespaces = false
 
+[tool.setuptools.package-data]
+ringneck = ["py.typed"]
+
 [tool.pylint]
 max-line-length=140
 
